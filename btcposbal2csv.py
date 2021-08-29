@@ -2,6 +2,7 @@ import os
 import tempfile
 import argparse
 import sqlite3
+import sys
 from utils import parse_ldb
 
 
@@ -105,81 +106,81 @@ def in_mem(in_args):
         else:
             add_dict[add] = [val, height]
 
-    for key in add_dict.iterkeys():
+    for key in add_dict.keys():
         ll = add_dict[key]
         yield key, ll[0], ll[1]
 
 
-def low_mem(in_args):
-    keep_types = []
-    if in_args.P2PKH:
-        keep_types.append(0)
-    if in_args.P2SH:
-        keep_types.append(1)
-    if in_args.P2PK:
-        keep_types += [2, 3, 4, 5]
-
-    if in_args.keep_sqlite:
-        dbfile = in_args.keep_sqlite
-    else:
-        fd, dbfile = tempfile.mkstemp()
-        os.close(fd)
-
-    with sqlite3.connect(dbfile) as conn:
-        curr = conn.cursor()
-
-        curr.execute(
-            """
-            DROP TABLE IF EXISTS balance
-            """
-        )
-
-        curr.execute(
-            """
-            CREATE TABLE balance (
-                    address TEXT PRIMARY KEY,
-                    amount BIGINT NOT NULL,
-                    height BIGINT NOT NULL
-            )
-            """
-        )
-
-        curr.execute('BEGIN TRANSACTION')
-
-        expinsert = """
-            INSERT OR IGNORE INTO balance (address, amount, height) VALUES (?, ?, ?)"""
-        expupdate = """
-            UPDATE balance SET
-            amount = amount + ?,
-            height = ?
-            WHERE address = ?
-            """
-        for add, val, height in parse_ldb(
-                fin_name=in_args.chainstate,
-                version=in_args.bitcoin_version,
-                types=get_types(in_args)):
-            curr.execute(expinsert, (add, 0, 0))
-            curr.execute(expupdate, (val, height, add))
-
-        if in_args.sort is None:
-            exp = 'SELECT * FROM balance'
-        elif in_args.sort == 'ASC':
-            exp = 'SELECT * FROM balance ORDER BY amount ASC'
-        elif in_args.sort == 'DESC':
-            exp = 'SELECT * FROM balance ORDER BY amount DESC'
-        else:
-            raise Exception
-
-        curr.execute(exp)
-
-        for j in curr:
-            yield j[0], j[1], j[2]
-
-        conn.commit()
-        curr.close()
-
-    if not in_args.keep_sqlite:
-        os.remove(dbfile)
+# def low_mem(in_args):
+#     keep_types = []
+#     if in_args.P2PKH:
+#         keep_types.append(0)
+#     if in_args.P2SH:
+#         keep_types.append(1)
+#     if in_args.P2PK:
+#         keep_types += [2, 3, 4, 5]
+#
+#     if in_args.keep_sqlite:
+#         dbfile = in_args.keep_sqlite
+#     else:
+#         fd, dbfile = tempfile.mkstemp()
+#         os.close(fd)
+#
+#     with sqlite3.connect(dbfile) as conn:
+#         curr = conn.cursor()
+#
+#         curr.execute(
+#             """
+#             DROP TABLE IF EXISTS balance
+#             """
+#         )
+#
+#         curr.execute(
+#             """
+#             CREATE TABLE balance (
+#                     address TEXT PRIMARY KEY,
+#                     amount BIGINT NOT NULL,
+#                     height BIGINT NOT NULL
+#             )
+#             """
+#         )
+#
+#         curr.execute('BEGIN TRANSACTION')
+#
+#         expinsert = """
+#             INSERT OR IGNORE INTO balance (address, amount, height) VALUES (?, ?, ?)"""
+#         expupdate = """
+#             UPDATE balance SET
+#             amount = amount + ?,
+#             height = ?
+#             WHERE address = ?
+#             """
+#         for add, val, height in parse_ldb(
+#                 fin_name=in_args.chainstate,
+#                 version=in_args.bitcoin_version,
+#                 types=get_types(in_args)):
+#             curr.execute(expinsert, (add, 0, 0))
+#             curr.execute(expupdate, (val, height, add))
+#
+#         if in_args.sort is None:
+#             exp = 'SELECT * FROM balance'
+#         elif in_args.sort == 'ASC':
+#             exp = 'SELECT * FROM balance ORDER BY amount ASC'
+#         elif in_args.sort == 'DESC':
+#             exp = 'SELECT * FROM balance ORDER BY amount DESC'
+#         else:
+#             raise Exception
+#
+#         curr.execute(exp)
+#
+#         for j in curr:
+#             yield j[0], j[1], j[2]
+#
+#         conn.commit()
+#         curr.close()
+#
+#     if not in_args.keep_sqlite:
+#         os.remove(dbfile)
 
 
 if __name__ == '__main__':
@@ -189,7 +190,8 @@ if __name__ == '__main__':
     print('reading chainstate database')
     if args.lowmem:
         print('lowmem')
-        add_iter = low_mem(args)
+        sys.exit(1)
+        # add_iter = low_mem(args)
     else:
         print('inmem')
         add_iter = in_mem(args)
@@ -202,7 +204,7 @@ if __name__ == '__main__':
                 if sat_val == 0:
                     continue
                 w.append(
-                    address + ',' + str(sat_val) + ',' + str(block_height)
+                    address.decode('ascii') + ',' + str(sat_val) + ',' + str(block_height)
                 )
                 c += 1
                 if c == 1000:

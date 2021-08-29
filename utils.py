@@ -134,7 +134,7 @@ def decode_utxo(coin, outpoint, version=0.15):
     else:
         # First we will parse all the data encoded in the outpoint, that is, the transaction id and index of the utxo.
         # Check that the input data corresponds to a transaction.
-        assert outpoint[:2] == '43'
+        assert outpoint[:2] == b'43'
         # Check the provided outpoint has at least the minimum length (1 byte of key code, 32 bytes tx id, 1 byte index)
         assert len(outpoint) >= 68
         # Get the transaction id (LE) by parsing the next 32 bytes of the outpoint.
@@ -238,7 +238,7 @@ def decode_utxo_v08_v014(utxo):
         vout = []
     else:
         n = code >> 3
-        vout = [i for i in xrange(len(vout)) if vout[i] is not 0]
+        vout = [i for i in range(len(vout)) if vout[i] != 0]
 
     # If n is set, the encoded value contains a bitvector. The following bytes are parsed until n non-zero bytes have
     # been extracted. (If a 00 is found, the parsing continues but n is not decreased)
@@ -314,7 +314,7 @@ def parse_ldb(fin_name, version=0.15, types=(0, 1)):
     db = plyvel.DB(fin_name, compression=None)  # Change with path to chainstate
 
     # Load obfuscation key (if it exists)
-    o_key = db.get((unhexlify("0e00") + "obfuscate_key"))
+    o_key = db.get((unhexlify("0e00") + b"obfuscate_key"))
 
     # If the key exists, the leading byte indicates the length of the key (8 byte by default). If there is no key,
     # 8-byte zeros are used (since the key will be XORed with the given values).
@@ -366,6 +366,17 @@ def parse_ldb(fin_name, version=0.15, types=(0, 1)):
                     continue
                 add = 'P2PK'
                 yield add, out['amount'], value['height']
+            elif out['out_type'] == 28:
+                import bech32
+                addr = list(bytes.fromhex(out['data'][4:]))
+                addr = bech32.convertbits(addr, 8, 5, True)
+                assert isinstance(addr, list)
+                assert all(isinstance(x, int) for x in addr)
+                assert len(addr) == 20 or len(addr) == 32, len(addr)
+                addr = bech32.bech32_encode('tb', [0] + addr)
+                if isinstance(addr, str):
+                    addr = addr.encode('ascii')
+                yield addr, out['amount'], value['height']
             else:
                 not_decoded[0] += 1
                 not_decoded[1] += out['amount']
@@ -394,7 +405,7 @@ def deobfuscate_value(obfuscation_key, value):
     # Get the extended obfuscation key by concatenating the obfuscation key with itself until it is as large as the
     # value to be de-obfuscated.
     if l_obf < l_value:
-        extended_key = (obfuscation_key * ((l_value / l_obf) + 1))[:l_value]
+        extended_key = (obfuscation_key * (int(l_value / l_obf) + 1))[:l_value]
     else:
         extended_key = obfuscation_key[:l_value]
 
@@ -448,7 +459,7 @@ def hash_160_to_btc_address(h160, v):
         h160 = unhexlify(h160)
 
     # Add the network version leading the previously calculated RIPEMD-160 hash.
-    vh160 = chr(v) + h160
+    vh160 = chr(v).encode('ascii') + h160
     # Double sha256.
     h = sha256(sha256(vh160).digest()).digest()
     # Add the two first bytes of the result as a checksum tailing the RIPEMD-160 hash.
