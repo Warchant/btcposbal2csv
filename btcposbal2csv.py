@@ -67,7 +67,7 @@ def input_args():
         '--sort',
         metavar='ASC/DESC',
         type=str,
-        default=None,
+        default='ASC',
         help='sort addresses by output ammount '
              'ASCending / DESCending '
              'if not given not sorting will be done'

@@ -22,15 +22,16 @@ def txout_decompress(x):
     :return: The decompressed amount of satoshi.
     :rtype: int
     """
-
+    assert isinstance(x, int)
     if x == 0:
         return 0
     x -= 1
     e = x % 10
-    x /= 10
+    assert isinstance(e, int)
+    x //= 10
     if e < 9:
         d = (x % 9) + 1
-        x /= 9
+        x //= 9
         n = x * 10 + d
     else:
         n = x + 1
@@ -71,6 +72,7 @@ def b128_decode(data):
             n += 1
             i += 1
         else:
+            assert isinstance(n, int)
             return n
 
 
@@ -154,6 +156,7 @@ def decode_utxo(coin, outpoint, version=0.15):
         # encoded as a B128 VARINT, and compressed using the equivalent to txout_compressor.
         data, offset = parse_b128(coin, offset)
         amount = txout_decompress(b128_decode(data))
+        assert isinstance(amount, int)
 
         # Finally, we can obtain the data type by parsing the last B128 VARINT
         out_type, offset = parse_b128(coin, offset)
@@ -346,7 +349,7 @@ def parse_ldb(fin_name, version=0.15, types=(0, 1)):
             # 2 - 3 --> P2PK(Compressed keys)
             # 4 - 5 --> P2PK(Uncompressed keys)
 
-            if counter % 100 == 0:
+            if counter % 1000 == 0:
                 sys.stdout.write('\r parsed transactions: %d' % counter)
                 sys.stdout.flush()
             counter += 1
@@ -405,7 +408,7 @@ def deobfuscate_value(obfuscation_key, value):
     # Get the extended obfuscation key by concatenating the obfuscation key with itself until it is as large as the
     # value to be de-obfuscated.
     if l_obf < l_value:
-        extended_key = (obfuscation_key * (int(l_value / l_obf) + 1))[:l_value]
+        extended_key = (obfuscation_key * (l_value // l_obf + 1))[:l_value]
     else:
         extended_key = obfuscation_key[:l_value]
 
