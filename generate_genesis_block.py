@@ -37,24 +37,73 @@ def encode_varint(i):
         raise ValueError("integer too large: %d" % (i,))
 
 
+OP_PUSHDATA1 = 0x4c
+OP_PUSHDATA2 = 0x4d
+OP_PUSHDATA4 = 0x4e
+OP_1 = 0x51
+
+
 @dataclass
+class CScriptNum:
+    @staticmethod
+    def serialize(n: int) -> bytes:
+        if n == 0:
+            return bytes()
+
+        result = bytes()
+        neg = n < 0
+        absval = abs(n)
+
+        while absval:
+            result += bytes([absval & 0xff])
+            absval >>= 8
+
+        if result[-1] & 0x80:
+            result += bytes([0x80 if neg else 0])
+        elif neg:
+            result[-1] |= 0x80
+
+        return result
+
+
+@dataclass()
 class CScript:
-    cmds: List[Union[int, bytes]]
+    cmds: bytes = bytes()
 
-    def encode(self):
-        out = []
-        for cmd in self.cmds:
-            if isinstance(cmd, int):
-                # an int is just an opcode, encode as a single byte
-                out += [encode_int(cmd, 1)]
-            elif isinstance(cmd, bytes):
-                # bytes represent an element, encode its length and then content
-                length = len(cmd)
-                assert length < 75  # any longer than this requires a bit of tedious handling that we'll skip here
-                out += [encode_int(length, 1), cmd]
+    def __add__(self, other):
+        if isinstance(other, bytes):
+            if len(other) < OP_PUSHDATA1:
+                self.cmds += encode_int(len(other), 1)
+            elif len(other) <= 0xff:
+                self.cmds += bytes([OP_PUSHDATA1])
+                self.cmds += encode_int(len(other), 1)
+            elif len(other) <= 0xffff:
+                self.cmds += bytes([OP_PUSHDATA2])
+                self.cmds += encode_int(len(other), 2)
+            else:
+                self.cmds += bytes([OP_PUSHDATA4])
+                self.cmds += encode_int(len(other), 4)
+            self.cmds += other
+            return self
 
-        ret = b''.join(out)
-        return encode_varint(len(ret)) + ret
+        if isinstance(other, int):
+            if other == -1 or (1 <= other <= 16):
+                self.cmds += bytes([other + (OP_1 - 1)])
+            elif other == 0:
+                self.cmds += bytes([0])
+            else:
+                return self + CScriptNum.serialize(other)
+            return self
+
+        raise Exception("Bad type")
+
+    def __iadd__(self, other):
+        v = self + other
+        self.cmds = v.cmds
+        return self
+
+    def encode(self) -> bytes:
+        return self.cmds
 
 
 @dataclass
@@ -120,24 +169,27 @@ class Tx:
         return sha256(sha256(self.encode()))[::-1].hex()  # little/big endian conventions require byte order swap
 
 
-@dataclass
-class Balance:
-    address: str
-    satoshi: int
-
-    def to_output(self) -> CTxOut:
-        return CTxOut(
-            scriptPubKey=CScript([0x0, 0x14, ]),
-            amount=self.satoshi
-        )
+def script_with_prefix(nbits) -> CScript:
+    c = CScript() + nbits
+    if nbits <= 0xff:
+        return c + CScriptNum.serialize(1)
+    if nbits <= 0xffff:
+        return c + CScriptNum.serialize(2)
+    if nbits <= 0xffffff:
+        return c + CScriptNum.serialize(3)
+    return c + CScriptNum.serialize(4)
 
 
 def read_balances(file: Path):
     assert file.exists()
     with open(file, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
-        for address, satoshis, _ in reader:
-            yield Balance(address, satoshis)
+        for script, satoshis, _ in reader:
+            try:
+                bytes.fromhex(script)
+            except:
+                raise Exception("Looks like {} is not a script".format(script))
+            yield CTxOut(CScript() + script, satoshis)
 
 
 def generate_genesis_block(
@@ -146,19 +198,21 @@ def generate_genesis_block(
         nBits: int,
         nVersion: int,
         pszTimestamp: str = "VeriBlock",
-        balances: List[Balance] = []
+        txouts: List[CTxOut] = []
 ):
     # create input
     txin = CTxIn(
-        scriptSig=CScript([])
+        scriptSig=CScript(script_with_prefix(nBits)) + [bytes(pszTimestamp)]
     )
 
     # create coinbase tx
     tx = Tx(
         version=nVersion,
         inputs=[txin],
-        outputs=[]
+        outputs=txouts
     )
+
+    merkleroot = tx.tx_id()
 
 
 def main():

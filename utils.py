@@ -377,17 +377,20 @@ def parse_ldb(fin_name, network, version=0.15, types=(0, 1), raw_script=False):
             if out['out_type'] == 0:
                 if out['out_type'] not in types:
                     continue
-                add = out['data']
+                # p2pkh
+                # OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG
+                add = '76a914' + out['data'] + '88ac'
                 if not raw_script:
                     add = hash_160_to_btc_address(out['data'], b58pubkey_prefix)
                 yield add, out['amount'], value['height']
-            elif out['out_type'] == 1:
-                if out['out_type'] not in types:
-                    continue
-                add = out['data']
-                if not raw_script:
-                    add = hash_160_to_btc_address(out['data'], b58script_prefix)
-                yield add, out['amount'], value['height']
+            # elif out['out_type'] == 1:
+            #     if out['out_type'] not in types:
+            #         continue
+            #     # p2sh
+            #     add = out['data']
+            #     if not raw_script:
+            #         add = hash_160_to_btc_address(out['data'], b58script_prefix)
+            #     yield add, out['amount'], value['height']
             elif out['out_type'] == 28:
                 addr = out['data']
                 if not raw_script:
@@ -492,7 +495,3 @@ def hash_160_to_btc_address(h160, v):
     addr = b58encode(addr)
 
     return addr
-
-def btc_address_to_hash_160(addr, prefix='tb'):
-    if addr.startswith(prefix):
-        pass
