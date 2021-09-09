@@ -304,7 +304,27 @@ def decode_utxo_v08_v014(utxo):
     return {'version': version, 'coinbase': coinbase, 'outs': outs, 'height': height}
 
 
-def parse_ldb(fin_name, version=0.15, types=(0, 1)):
+def parse_ldb(fin_name, network, version=0.15, types=(0, 1), raw_script=False):
+    '''
+    b58pubkey_prefix = 0   for mainnet
+                     = 111 for testnet, regtest
+    b58script_prefix = 5   for mainnet
+                     = 196 for testnet, regtest
+    '''
+    b58pubkey_prefixes = {
+        "main": 0,
+        "test": 111
+    }
+    b58script_prefixes = {
+        "main": 5,
+        "test": 196
+    }
+
+    assert network in b58pubkey_prefixes
+    b58pubkey_prefix = b58pubkey_prefixes[network]
+    assert network in b58script_prefixes
+    b58script_prefix = b58script_prefixes[network]
+
     counter = 0
     if 0.08 <= version < 0.15:
         prefix = b'c'
@@ -357,28 +377,29 @@ def parse_ldb(fin_name, version=0.15, types=(0, 1)):
             if out['out_type'] == 0:
                 if out['out_type'] not in types:
                     continue
-                add = hash_160_to_btc_address(out['data'], 0)
+                add = out['data']
+                if not raw_script:
+                    add = hash_160_to_btc_address(out['data'], b58pubkey_prefix)
                 yield add, out['amount'], value['height']
             elif out['out_type'] == 1:
                 if out['out_type'] not in types:
                     continue
-                add = hash_160_to_btc_address(out['data'], 5)
-                yield add, out['amount'], value['height']
-            elif out['out_type'] in (2, 3, 4, 5):
-                if out['out_type'] not in types:
-                    continue
-                add = 'P2PK'
+                add = out['data']
+                if not raw_script:
+                    add = hash_160_to_btc_address(out['data'], b58script_prefix)
                 yield add, out['amount'], value['height']
             elif out['out_type'] == 28:
-                import bech32
-                addr = list(bytes.fromhex(out['data'][4:]))
-                addr = bech32.convertbits(addr, 8, 5, True)
-                assert isinstance(addr, list)
-                assert all(isinstance(x, int) for x in addr)
-                assert len(addr) == 20 or len(addr) == 32, len(addr)
-                addr = bech32.bech32_encode('tb', [0] + addr)
-                if isinstance(addr, str):
-                    addr = addr.encode('ascii')
+                addr = out['data']
+                if not raw_script:
+                    import bech32
+                    addr = list(bytes.fromhex(out['data'][4:]))
+                    addr = bech32.convertbits(addr, 8, 5, True)
+                    assert isinstance(addr, list)
+                    assert all(isinstance(x, int) for x in addr)
+                    assert len(addr) == 20 or len(addr) == 32, len(addr)
+                    addr = bech32.bech32_encode('tb', [0] + addr)
+                    if isinstance(addr, str):
+                        addr = addr.encode('ascii')
                 yield addr, out['amount'], value['height']
             else:
                 not_decoded[0] += 1
@@ -471,3 +492,7 @@ def hash_160_to_btc_address(h160, v):
     addr = b58encode(addr)
 
     return addr
+
+def btc_address_to_hash_160(addr, prefix='tb'):
+    if addr.startswith(prefix):
+        pass

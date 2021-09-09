@@ -15,6 +15,8 @@ def input_args():
         type=str,
         help='path to bitcoin chainstate directory (usually in full node data dir)'
     )
+    parser.add_argument("--network", required=True, action='store', help="main or test")
+    parser.add_argument("--raw_script", action="store_true", default=False, help="Decode addresses to script")
     parser.add_argument(
         '--bitcoin_version',
         type=float,
@@ -74,6 +76,9 @@ def input_args():
     )
     a = parser.parse_args()
 
+    if a.network not in ['main', 'test']:
+        raise AssertionError('--network supports main or test argument')
+
     if a.sort not in {None, 'ASC', 'DESC'}:
         raise AssertionError('--sort can be only "ASC" or "DESC"')
 
@@ -94,12 +99,14 @@ def get_types(in_args):
 
 
 def in_mem(in_args):
-
     add_dict = dict()
     for add, val, height in parse_ldb(
-            fin_name=in_args.chainstate,
-            version=in_args.bitcoin_version,
-            types=get_types(in_args)):
+        fin_name=in_args.chainstate,
+        version=in_args.bitcoin_version,
+        types=get_types(in_args),
+        network=args.network,
+        raw_script=args.raw_script
+    ):
         if add in add_dict:
             add_dict[add][0] += val
             add_dict[add][1] = height
@@ -190,6 +197,7 @@ if __name__ == '__main__':
     print('reading chainstate database')
     if args.lowmem:
         print('lowmem')
+        print('not implemented') # disable lowmem
         sys.exit(1)
         # add_iter = low_mem(args)
     else:
@@ -203,8 +211,11 @@ if __name__ == '__main__':
             for address, sat_val, block_height in add_iter:
                 if sat_val == 0:
                     continue
+                if isinstance(address, bytes):
+                    address = address.decode('ascii')
+                assert isinstance(address, str), address
                 w.append(
-                    address.decode('ascii') + ',' + str(sat_val) + ',' + str(block_height)
+                    address + ',' + str(sat_val) + ',' + str(block_height)
                 )
                 c += 1
                 if c == 1000:
