@@ -37,10 +37,18 @@ def encode_varint(i):
         raise ValueError("integer too large: %d" % (i,))
 
 
-OP_PUSHDATA1 = 0x4c
-OP_PUSHDATA2 = 0x4d
-OP_PUSHDATA4 = 0x4e
-OP_1 = 0x51
+@dataclass
+class OpCode:
+    data: int
+
+    def __int__(self):
+        return self.data
+
+OP_PUSHDATA1 = OpCode(0x4c)
+OP_PUSHDATA2 = OpCode(0x4d)
+OP_PUSHDATA4 = OpCode(0x4e)
+OP_1 = OpCode(0x51)
+OP_CHECKSIG = OpCode(0xac)
 
 
 @dataclass
@@ -71,31 +79,40 @@ class CScript:
     cmds: bytes = bytes()
 
     def __add__(self, other):
+        if isinstance(other, OpCode):
+            assert 0 <= other.data <= 0xff
+            self.cmds += bytes([other.data])
+            return self
+
         if isinstance(other, bytes):
-            if len(other) < OP_PUSHDATA1:
+            if len(other) < int(OP_PUSHDATA1):
                 self.cmds += encode_int(len(other), 1)
             elif len(other) <= 0xff:
-                self.cmds += bytes([OP_PUSHDATA1])
+                self.cmds += bytes([int(OP_PUSHDATA1)])
                 self.cmds += encode_int(len(other), 1)
             elif len(other) <= 0xffff:
-                self.cmds += bytes([OP_PUSHDATA2])
+                self.cmds += bytes([int(OP_PUSHDATA2)])
                 self.cmds += encode_int(len(other), 2)
             else:
-                self.cmds += bytes([OP_PUSHDATA4])
+                self.cmds += bytes([int(OP_PUSHDATA4)])
                 self.cmds += encode_int(len(other), 4)
             self.cmds += other
             return self
 
         if isinstance(other, int):
             if other == -1 or (1 <= other <= 16):
-                self.cmds += bytes([other + (OP_1 - 1)])
+                self.cmds += bytes([other + (int(OP_1) - 1)])
             elif other == 0:
                 self.cmds += bytes([0])
             else:
                 return self + CScriptNum.serialize(other)
             return self
 
-        raise Exception("Bad type")
+        if isinstance(other, CScript):
+            self.cmds += other.cmds
+            return self
+
+        raise Exception("Bad type: {}".format(other))
 
     def __iadd__(self, other):
         v = self + other
@@ -109,15 +126,18 @@ class CScript:
 @dataclass
 class CTxIn:
     scriptSig: CScript
-    nSequence: int = 0
+    nSequence: int = 0xffffffff
     prevtx: bytes = b'\x00' * 32
-    previndex: int = 0
+    previndex: int = 0xffffffff
 
     def encode(self):
         out = []
         out += [self.prevtx[::-1]]  # little endian vs big endian encodings... sigh
         out += [encode_int(self.previndex, 4)]
-        out += [self.scriptSig.encode()]
+
+        e = self.scriptSig.encode()
+        out += [encode_varint(len(e))]
+        out += [e]
         out += [encode_int(self.nSequence, 4)]
         return b''.join(out)
 
@@ -125,12 +145,14 @@ class CTxIn:
 @dataclass
 class CTxOut:
     scriptPubKey: CScript
-    amount: int = 0
+    amount: int = 0xffffffff
 
     def encode(self):
         out = []
         out += [encode_int(self.amount, 8)]
-        out += [self.scriptPubKey.encode()]
+        e = self.scriptPubKey.encode()
+        out += [encode_varint(len(e))]
+        out += [e]
         return b''.join(out)
 
 
