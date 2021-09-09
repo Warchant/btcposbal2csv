@@ -188,7 +188,7 @@ class Tx:
         return b''.join(out)
 
     def tx_id(self) -> str:
-        return sha256(sha256(self.encode()))[::-1].hex()  # little/big endian conventions require byte order swap
+        return sha256t(self.encode()).hex()
 
 
 def script_with_prefix(nbits) -> CScript:
