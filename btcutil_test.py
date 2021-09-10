@@ -1,8 +1,48 @@
 import unittest
-from generate_genesis_block import *
+from btcutil import *
 
 
 class TestGenerator(unittest.TestCase):
+    def test_decode_nbits(self):
+        target = decode_target(0x207fffff)
+        self.assertEqual("7fffff0000000000000000000000000000000000000000000000000000000000", target)
+
+    def test_check_pow(self):
+        nbits = 0x207fffff
+        header = make_header(
+            version=1,
+            prev_block=b'\x00' * 32,
+            merkle_root=bytes.fromhex("fbef9740e790f33f1a1708b3108a7954247491ecc753a63db00d25562935ce74")[::-1],
+            timestamp=1337,
+            nbits=nbits,
+            nonce=0
+        )
+
+        self.assertEqual(sha256t(header)[::-1].hex(),
+                         "63fb6db8609ea3378e12ff251fa44bee262c77de7e9b25494280ee26d3eebeb1")
+        self.assertLess(get_block_hash_int(header), decode_target_int(nbits))
+
+    def test_create_header(self):
+        header = make_header(
+            version=1,
+            prev_block=b'\x00' * 32,
+            merkle_root=b'\x11' * 32,
+            timestamp=1337,
+            nbits=0x207fffff,
+            nonce=3
+        )
+
+        expected = "010000000000000000000000000000000000000000000000000000000000000000000000111111111111111111111111111111111111111111111111111111111111111139050000ffff7f2003000000"
+        self.assertEqual(expected, header.hex())
+
+        header = set_header_nonce(header, 0x01020304)
+        expected = "010000000000000000000000000000000000000000000000000000000000000000000000111111111111111111111111111111111111111111111111111111111111111139050000ffff7f2004030201"
+        self.assertEqual(expected, header.hex())
+
+        header = set_header_timestamp(header, 0x334455)
+        expected = "010000000000000000000000000000000000000000000000000000000000000000000000111111111111111111111111111111111111111111111111111111111111111155443300ffff7f2004030201"
+        self.assertEqual(expected, header.hex())
+
     def test_script_with_prefix(self):
         self.assertEqual('02ff000101', script_with_prefix(0xff).encode().hex())
         self.assertEqual('03ffff000102', script_with_prefix(0xffff).encode().hex())
