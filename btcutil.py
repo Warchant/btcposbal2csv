@@ -186,7 +186,7 @@ class Tx:
         return b''.join(out)
 
     def tx_id(self) -> bytes:
-        return sha256t(self.encode())
+        return sha256d(self.encode())
 
 
 def script_with_prefix(nbits) -> CScript:
@@ -249,7 +249,7 @@ def decode_target_int(nbits):
 
 
 def get_block_hash(header: bytes) -> bytes:
-    return sha256t(header)[::-1]
+    return sha256d(header)[::-1]
 
 
 def get_block_hash_int(header: bytes) -> int:

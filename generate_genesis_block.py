@@ -54,6 +54,11 @@ def generate_genesis_block(
         target = decode_target_int(nBits)
         while get_block_hash_int(header) >= target:
             nonce += 1
+            if nonce > 0xffffffff:
+                nonce = 0
+                TIME += 1
+                print("Increasing timestamp {}".format(TIME))
+                set_header_timestamp(header, TIME)
             set_header_nonce(header, nonce)
         after = time.time()
         if get_block_hash_int(header) < target:
@@ -61,18 +66,17 @@ def generate_genesis_block(
                 Nonce:      {nonce}
                 Header:     {header.hex()}
                 Hash:       {get_block_hash(header).hex()}
-                MerkleRoot: {merkleroot.hex()}
+                MerkleRoot: {merkleroot[::-1].hex()}
                 Tx:         {tx.encode().hex()} 
                 Took:       {after-before}
             ''')
             return
         else:
-            print("Increasing timestamp: {}".format(nTime))
-            TIME += 1
+            print("Can not find a solution...")
 
 def main():
     pszTimestamp = "VeriBlock Bitcoin Reference Implementation, Sept 13, 2021"
-    timestamp = 1631527200
+    timestamp = 1631200000
 
     out = CTxOut(
         scriptPubKey=CScript() + OpCode(0x00) + bytes.fromhex("3dd5f2f667315cc98e669deb88d3dfe831aa2cea"),
@@ -92,7 +96,7 @@ def main():
     generate_genesis_block(
         nTime=timestamp,
         pszTimestamp=pszTimestamp,
-        nBits=0x1d00ffff,
+        nBits=0x1d07ffff,
         nVersion=1,
         txouts=[out]
     )
