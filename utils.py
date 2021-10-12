@@ -319,11 +319,17 @@ def parse_ldb(fin_name, network, version=0.15, types=(0, 1), raw_script=False):
         "main": 5,
         "test": 196
     }
+    prefixes = {
+        "main": "bc",
+        "test": "tb"
+    }
 
     assert network in b58pubkey_prefixes
     b58pubkey_prefix = b58pubkey_prefixes[network]
     assert network in b58script_prefixes
     b58script_prefix = b58script_prefixes[network]
+    assert network in prefixes
+    addrprefix = prefixes[network]
 
     counter = 0
     if 0.08 <= version < 0.15:
@@ -383,14 +389,15 @@ def parse_ldb(fin_name, network, version=0.15, types=(0, 1), raw_script=False):
                 if not raw_script:
                     add = hash_160_to_btc_address(out['data'], b58pubkey_prefix)
                 yield add, out['amount'], value['height']
-            # elif out['out_type'] == 1:
-            #     if out['out_type'] not in types:
-            #         continue
-            #     # p2sh
-            #     add = out['data']
-            #     if not raw_script:
-            #         add = hash_160_to_btc_address(out['data'], b58script_prefix)
-            #     yield add, out['amount'], value['height']
+            elif out['out_type'] == 1:
+                if out['out_type'] not in types:
+                    continue
+                # p2sh
+                # OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG
+                add = '76a914' + out['data'] + '88ac'
+                if not raw_script:
+                    add = hash_160_to_btc_address(out['data'], b58pubkey_prefix)
+                yield add, out['amount'], value['height']
             elif out['out_type'] == 28:
                 addr = out['data']
                 if not raw_script:
@@ -400,7 +407,7 @@ def parse_ldb(fin_name, network, version=0.15, types=(0, 1), raw_script=False):
                     assert isinstance(addr, list)
                     assert all(isinstance(x, int) for x in addr)
                     assert len(addr) == 20 or len(addr) == 32, len(addr)
-                    addr = bech32.bech32_encode('tb', [0] + addr)
+                    addr = bech32.bech32_encode(addrprefix, [0] + addr)
                     if isinstance(addr, str):
                         addr = addr.encode('ascii')
                 yield addr, out['amount'], value['height']
