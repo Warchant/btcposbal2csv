@@ -1,11 +1,9 @@
-import argparse
 import csv
 from pathlib import Path
 
-import multiprocessing as mp
 from btcutil import *
 import time
-import asyncio
+import sys
 
 def read_balances(file: Path):
     assert file.exists()
@@ -78,28 +76,51 @@ def main():
     pszTimestamp = "VeriBlock Bitcoin Reference Implementation, Sept 13, 2021"
     timestamp = 1631200000
 
+    outs = []
+
+    import csv
+    with open('script_test.txt', 'r', newline='') as r:
+        R = csv.reader(r)
+        R.__next__() # skip header
+
+        for line in R:
+            if len(line) == 0:
+                continue
+
+            script, amount, height = line
+            amount = int(amount)
+
+            s = CScript()
+            s.cmds = bytes.fromhex(script)
+            out = CTxOut(
+                scriptPubKey=s,
+                amount=amount
+            )
+            outs.append(out)
+            
     out = CTxOut(
         scriptPubKey=CScript() + OpCode(0x00) + bytes.fromhex("3dd5f2f667315cc98e669deb88d3dfe831aa2cea"),
         amount=5 * 10**8
     )
+    outs.append(out)
 
-    print("Regtest")
-    generate_genesis_block(
-        nTime=timestamp,
-        pszTimestamp=pszTimestamp,
-        nBits=0x207fffff,
-        nVersion=1,
-        txouts=[out]
-    )
+    # print("Regtest")
+    # generate_genesis_block(
+    #     nTime=timestamp,
+    #     pszTimestamp=pszTimestamp,
+    #     nBits=0x207fffff,
+    #     nVersion=1,
+    #     txouts=[out]
+    # )
 
-    print("Testnet")
-    generate_genesis_block(
-        nTime=timestamp,
-        pszTimestamp=pszTimestamp,
-        nBits=0x1d07ffff,
-        nVersion=1,
-        txouts=[out]
-    )
+    # print("Testnet")
+    # generate_genesis_block(
+    #     nTime=timestamp,
+    #     pszTimestamp=pszTimestamp,
+    #     nBits=0x1d07ffff,
+    #     nVersion=1,
+    #     txouts=outs
+    # )
 
     print("Mainnet")
     generate_genesis_block(
@@ -107,7 +128,7 @@ def main():
         pszTimestamp=pszTimestamp,
         nBits=0x1d00ffff,
         nVersion=1,
-        txouts=[out]
+        txouts=outs
     )
 
 
