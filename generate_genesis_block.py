@@ -78,8 +78,10 @@ def main():
     pszTimestamp = "VeriBlock Bitcoin Reference Implementation, Sept 13, 2021"
     timestamp = 1631200000
 
+    s = CScript()
+    s.cmds = bytes.fromhex("00144276b85af325a72e82cf6141bb421068ec8aabc3")
     out = CTxOut(
-        scriptPubKey=CScript() + OpCode(0x00) + bytes.fromhex("3dd5f2f667315cc98e669deb88d3dfe831aa2cea"),
+        scriptPubKey=s,
         amount=5 * 10**8
     )
 
@@ -92,23 +94,23 @@ def main():
         txouts=[out]
     )
 
-    print("Testnet")
-    generate_genesis_block(
-        nTime=timestamp,
-        pszTimestamp=pszTimestamp,
-        nBits=0x1d07ffff,
-        nVersion=1,
-        txouts=[out]
-    )
+    # print("Testnet")
+    # generate_genesis_block(
+    #     nTime=timestamp,
+    #     pszTimestamp=pszTimestamp,
+    #     nBits=0x1d07ffff,
+    #     nVersion=1,
+    #     txouts=[out]
+    # )
 
-    print("Mainnet")
-    generate_genesis_block(
-        nTime=timestamp,
-        pszTimestamp=pszTimestamp,
-        nBits=0x1d00ffff,
-        nVersion=1,
-        txouts=[out]
-    )
+    # print("Mainnet")
+    # generate_genesis_block(
+    #     nTime=timestamp,
+    #     pszTimestamp=pszTimestamp,
+    #     nBits=0x1d00ffff,
+    #     nVersion=1,
+    #     txouts=[out]
+    # )
 
 
 if __name__ == "__main__":

@@ -60,7 +60,7 @@ def input_args():
         '--P2PK',
         metavar='bool',
         type=bool,
-        default=False,
+        default=True,
         help='include P2PK transactions, default 0 '
              'warning - cannot decode address for this type of transactions, the total output'
              'for these addresses will be included under P2PK entry in output csv file'
