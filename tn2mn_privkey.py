@@ -51,7 +51,7 @@ def process_dump(path):
                 if m:
                     pk, addr = m.groups()
                     mn = tn2mn(pk).decode('utf-8')
-                    yield mn
+                    yield mn, addr
 
 
 class BtcApi:
@@ -81,7 +81,7 @@ class BtcApi:
 
 
     def rescan(self):
-        return self.req('rescan')
+        return self.req('rescanblockchain')
 
     def importprivkey(self, pk, rescan=False):
         return self.req("importprivkey", [pk, "", rescan])
@@ -96,7 +96,8 @@ args = parser.parse_args()
 keys = list(process_dump(args.dumpwallet))
 
 api = BtcApi('http://127.0.0.1:18332', args.user, args.password)
-for key in keys:
-    print(api.importprivkey(key))
+for key, addr in keys:
+    api.importprivkey(key)
+    print("Imported {}".format(addr))
 
 print(api.rescan())
