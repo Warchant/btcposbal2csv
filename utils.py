@@ -393,8 +393,8 @@ def parse_ldb(fin_name, network, version=0.15, types=(0, 1), raw_script=False):
                 if out['out_type'] not in types:
                     continue
                 # p2sh
-                # OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG
-                add = '76a914' + out['data'] + '88ac'
+                # OP_HASH160 <hash> OP_EQUAL
+                add = 'a914' + out['data'] + '87'
                 if not raw_script:
                     add = hash_160_to_btc_address(out['data'], b58pubkey_prefix)
                 yield add, out['amount'], value['height']
