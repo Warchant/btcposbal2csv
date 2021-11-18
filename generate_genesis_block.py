@@ -74,12 +74,12 @@ def generate_genesis_block(
 
 def main():
     pszTimestamp = "VeriBlock Bitcoin Reference Implementation, Sept 13, 2021"
-    timestamp = 1631200000
+    timestamp = 1631200004
 
     outs = []
 
     import csv
-    with open('script_test.txt', 'r', newline='') as r:
+    with open('script.txt', 'r', newline='') as r:
         R = csv.reader(r)
         R.__next__() # skip header
 
